@@ -2,8 +2,8 @@
 export HF_TOKEN=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
 python train.py \
 --seed 100 \
---model_name_or_path "mistralai/Mistral-7B-Instruct-v0.2" \
---dataset_name "smangrul/ultrachat-10k-chatml" \
+--model_name_or_path "meta-llama/Meta-Llama-3-8B-Instruct" \
+--train_filename "datasets/no_system_prompt/train.jsonl" \
 --chat_template_format "chatml" \
 --add_special_tokens False \
 --append_concat_token False \
@@ -31,7 +31,6 @@ python train.py \
 --gradient_accumulation_steps 24 \
 --gradient_checkpointing True \
 --use_reentrant True \
---dataset_text_field "content" \
 --use_peft_lora True \
 --lora_r 8 \
 --lora_alpha 16 \
@@ -40,4 +39,4 @@ python train.py \
 --use_4bit_quantization True \
 --use_nested_quant True \
 --bnb_4bit_compute_dtype "bfloat16" \
---use_flash_attn True
+--use_flash_attn False

@@ -8,6 +8,7 @@ from typing import Optional
 from transformers import HfArgumentParser, TrainingArguments, set_seed
 from trl import SFTTrainer
 from utils import create_and_prepare_model, create_datasets
+from datasets import load_dataset
 
 
 # Define and parse arguments.
@@ -77,15 +78,12 @@ class ModelArguments:
 
 @dataclass
 class DataTrainingArguments:
-    dataset_name: Optional[str] = field(
-        default="timdettmers/openassistant-guanaco",
-        metadata={"help": "The preference dataset to use."},
-    )
+    train_filename: str = field(metadata={"help": "Path to the training data."})
+    valid_filename: Optional[str] = field(default=None, metadata={"help": "Path to the validation data."})
     packing: Optional[bool] = field(
         default=False,
         metadata={"help": "Use packing dataset creating."},
     )
-    dataset_text_field: str = field(default="text", metadata={"help": "Dataset field to use as input text."})
     max_seq_length: Optional[int] = field(default=512)
     append_concat_token: Optional[bool] = field(
         default=False,
@@ -99,6 +97,34 @@ class DataTrainingArguments:
         default="train,test",
         metadata={"help": "Comma separate list of the splits to use from the dataset."},
     )
+
+
+def apply_chat_template(example, tokenizer):
+    messages = example["messages"]
+    example["text"] = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=False, # only used for generation purposes
+    )
+    return example
+
+
+def create_dataset_new(data_args, tokenizer):
+    # Load dataset
+    data_files = {"train": data_args.train_filename}
+    if data_args.valid_filename is not None:
+        data_files["validation"] = data_Args.valid_filename
+    raw_dataset = load_dataset("json", data_files=data_files)
+
+    # Format
+    raw_dataset = raw_dataset.map(
+        apply_chat_template,
+        fn_kwargs={"tokenizer": tokenizer},
+        remove_columns=list(raw_dataset["train"].features),
+        desc="Applying chat template",
+    )
+
+    return raw_dataset["train"], raw_dataset.get("validation", None)
 
 
 def main(model_args, data_args, training_args):
@@ -115,13 +141,9 @@ def main(model_args, data_args, training_args):
         training_args.gradient_checkpointing_kwargs = {"use_reentrant": model_args.use_reentrant}
 
     # datasets
-    # the dataset should be a jsonl file with 
-    train_dataset, eval_dataset = create_datasets(
-        tokenizer,
-        data_args,
-        training_args,
-        apply_chat_template=model_args.chat_template_format != "none",
-    )
+    train_dataset, eval_dataset = create_dataset_new(data_args, tokenizer)
+    print(train_dataset)
+    print(eval_dataset)
 
     # trainer
     trainer = SFTTrainer(
@@ -136,7 +158,7 @@ def main(model_args, data_args, training_args):
             "append_concat_token": data_args.append_concat_token,
             "add_special_tokens": data_args.add_special_tokens,
         },
-        dataset_text_field=data_args.dataset_text_field,
+        dataset_text_field="text",
         max_seq_length=data_args.max_seq_length,
     )
     trainer.accelerator.print(f"{trainer.model}")
