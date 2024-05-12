@@ -115,6 +115,7 @@ def main(model_args, data_args, training_args):
         training_args.gradient_checkpointing_kwargs = {"use_reentrant": model_args.use_reentrant}
 
     # datasets
+    # the dataset should be a jsonl file with 
     train_dataset, eval_dataset = create_datasets(
         tokenizer,
         data_args,
