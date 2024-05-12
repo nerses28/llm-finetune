@@ -9,11 +9,11 @@ python train.py \
 --append_concat_token False \
 --splits "train,test" \
 --max_seq_len 128 \
---num_train_epochs 1 \
+--num_train_epochs 0.05 \
 --logging_steps 5 \
 --log_level "info" \
 --logging_strategy "steps" \
---evaluation_strategy "epoch" \
+--evaluation_strategy "no" \
 --save_strategy "epoch" \
 --push_to_hub \
 --hub_private_repo True \
@@ -23,12 +23,12 @@ python train.py \
 --learning_rate 1e-4 \
 --lr_scheduler_type "cosine" \
 --weight_decay 1e-4 \
---warmup_ratio 0.0 \
+--warmup_ratio 0.1 \
 --max_grad_norm 1.0 \
---output_dir "mistral-sft-lora" \
+--output_dir "/workspace/mistral-sft-lora" \
 --per_device_train_batch_size 24 \
 --per_device_eval_batch_size 24 \
---gradient_accumulation_steps 24 \
+--gradient_accumulation_steps 1 \
 --gradient_checkpointing True \
 --use_reentrant True \
 --use_peft_lora True \
@@ -39,4 +39,4 @@ python train.py \
 --use_4bit_quantization True \
 --use_nested_quant True \
 --bnb_4bit_compute_dtype "bfloat16" \
---use_flash_attn False
+--use_flash_attn True

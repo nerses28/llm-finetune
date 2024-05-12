@@ -151,7 +151,7 @@ def main(model_args, data_args, training_args):
         tokenizer=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
+        #eval_dataset=eval_dataset,
         peft_config=peft_config,
         packing=data_args.packing,
         dataset_kwargs={
