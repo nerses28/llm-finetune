@@ -15,7 +15,6 @@ python train.py \
 --logging_strategy "steps" \
 --evaluation_strategy "no" \
 --save_strategy "epoch" \
---push_to_hub \
 --hub_private_repo True \
 --hub_strategy "every_save" \
 --bf16 True \
