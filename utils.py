@@ -114,7 +114,7 @@ def create_and_prepare_model(args, data_args, training_args):
         quantization_config=bnb_config,
         trust_remote_code=True,
         attn_implementation="sdpa" if args.use_flash_attn else "eager",
-        torch_dtype=None if args.use_flash_attn else torch_dtype,
+        torch_dtype=torch_dtype,
     )
 
     peft_config = LoraConfig(
