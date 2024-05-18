@@ -133,6 +133,11 @@ def main(model_args, data_args, training_args):
 
     # model
     model, peft_config, tokenizer = create_and_prepare_model(model_args, data_args, training_args)
+    vocab_size = getattr(getattr(model, "config", None), "vocab_size", None)
+    model_id = getattr(peft_config, "base_model_name_or_path", None)
+    print(vocab_size)
+    print(model_id)
+    print(model.config.__class__.from_pretrained(model_id).vocab_size)
 
     # gradient ckpt
     model.config.use_cache = not training_args.gradient_checkpointing

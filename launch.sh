@@ -13,7 +13,7 @@ python train.py \
 --logging_steps 5 \
 --log_level "info" \
 --logging_strategy "steps" \
---evaluation_strategy "no" \
+--eval_strategy "no" \
 --save_strategy "epoch" \
 --hub_private_repo True \
 --hub_strategy "every_save" \
