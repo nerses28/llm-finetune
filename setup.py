@@ -5,6 +5,9 @@ setup(
     version='0.1.0',
     packages=find_packages(),
     include_package_data=True,
+    package_data={
+        'cli': ['data/fsdp_config_qlora.yaml'],
+    },
     install_requires=[
         'Click',
     ],

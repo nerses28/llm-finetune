@@ -123,6 +123,7 @@ def main(model_args, data_args, training_args):
 
 
 if __name__ == "__main__":
+    print(sys.argv)
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
