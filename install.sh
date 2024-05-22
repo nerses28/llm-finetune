@@ -1,3 +1,4 @@
+export HF_TOKEN=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
 pip install transformers datasets peft accelerate trl bitsandbytes
 pip install flash-attn
 git config --global user.email "maximedebruyn@gmail.com"
