@@ -1,7 +1,12 @@
 import click
 import importlib.resources
 from argparse import Namespace
-from accelerate.commands.launch import multi_gpu_launcher, _validate_launch_command, launch_command_parser, launch_command
+from transformers import TrainingArguments
+from cli.scripts.train import main as train_fn
+# from accelerate.commands.launch import multi_gpu_launcher, _validate_launch_command, launch_command_parser, launch_command
+from accelerate import notebook_launcher
+from dataclasses import dataclass, field
+from typing import Optional
 
 
 def get_argparse_defaults(parser):
@@ -17,19 +22,37 @@ def main():
     pass
 
 
-DEFAULT_ARGUMENTS = {
-    "seed": 100,
-    "logging_steps": 50,
-    "log_level": "info",
-    "logging_strategy": "steps",
-    "eval_strategy": "epoch",
-    "save_strategy": "no",
-    "bf16": True,
-    "lr_scheduler_type": "constant",
-    "weight_decay": "1e-4",
-    "warmup_ratio": 0.1,
-    "max_grad_norm": 1.0
-}
+@dataclass
+class LocalTrainingArguments(TrainingArguments):
+    def __post_init__(self):
+        pass
+
+
+@dataclass
+class DataTrainingArguments:
+    train_filename: str = field(metadata={"help": "Path to the training data."})
+    valid_filename: Optional[str] = field(default=None, metadata={"help": "Path to the validation data."})
+    max_seq_length: Optional[int] = field(default=512)
+
+
+@dataclass
+class ModelArguments:
+    """
+    Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
+    """
+    model_name_or_path: str = field(
+        metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
+    )
+    lora_alpha: Optional[int] = field(default=16)
+    lora_dropout: Optional[float] = field(default=0.1)
+    lora_r: Optional[int] = field(default=64)
+
+
+@dataclass
+class DataTrainingArguments:
+    train_filename: str = field(metadata={"help": "Path to the training data."})
+    valid_filename: Optional[str] = field(default=None, metadata={"help": "Path to the validation data."})
+    max_seq_length: Optional[int] = field(default=512)
 
 
 
@@ -46,31 +69,35 @@ DEFAULT_ARGUMENTS = {
 @click.option("--model_suffix", type=str, help="Suffix applied to the adapter name")
 def train(data_train, data_valid, max_seq_len, lora_r, lora_alpha, lora_dropout, batch_size, learning_rate, n_epoch, model_suffix):
     # Trainer arguments
-    trainer_args = {
-        **DEFAULT_ARGUMENTS,
-        "model_name_or_path": "meta-llama/Meta-Llama-3-8B-Instruct",
-        "num_train_epochs": n_epoch,
-        "output_dir": "clips-ai-train/tmp",
-        "train_filename": data_train,
-        "max_seq_len": max_seq_len,
-        "lora_r": lora_r,
-        "lora_alpha": lora_alpha,
-        "lora_dropout": lora_dropout,
-        "per_device_train_batch_size": batch_size,
-        "per_device_eval_batch_size": batch_size,
-        "gradient_checkpointing": True
-    }
-    trainer_args = " ".join(["--{k} {v}".format(k=k, v=v) for k, v in trainer_args.items()]).split()
-    # Accelerate arguments
-    parser = launch_command_parser()
-    accelerate_args = get_argparse_defaults(parser)
-    accelerate_config_filename = importlib.resources.files("cli.data") / "fsdp_config_qlora.yaml"
-    accelerate_train_filename = importlib.resources.files("cli.scripts") / "train.py"
-    accelerate_args["config_file"] = str(accelerate_config_filename)
-    accelerate_args["training_script"] = str(accelerate_train_filename)
-    accelerate_args["training_script_args"] = trainer_args
-    accelerate_args = Namespace(**accelerate_args)
-    launch_command(accelerate_args)
+    training_args = LocalTrainingArguments(
+        output_dir="test_output_dir",
+        num_train_epochs=n_epoch,
+        seed=100,
+        logging_steps=50,
+        log_level="info",
+        logging_strategy="steps",
+        eval_strategy="epoch",
+        save_strategy="no",
+        bf16=True,
+        lr_scheduler_type="constant",
+        weight_decay="1e-4",
+        warmup_ratio=0.1,
+        max_grad_norm=1.0,
+        gradient_checkpointing=True,
+        remove_unused_columns=True
+    )
+    model_args = ModelArguments(
+        model_name_or_path="meta-llama/Meta-Llama-3-8B-Instruct",
+        lora_alpha=lora_alpha,
+        lora_r=lora_r,
+        lora_dropout=lora_dropout
+    )
+    data_args = DataTrainingArguments(
+        train_filename=data_train,
+        valid_filename=data_valid,
+        max_seq_length=max_seq_len
+    )
+    notebook_launcher(train_fn, (model_args, data_args, training_args), num_processes=2)
     #accelerate_args, *_ = _validate_launch_command(accelerate_args)
     #multi_gpu_launcher(accelerate_args)
     # Initiate a training argument manually and pass it to the fine-tuning function;
