@@ -28,3 +28,6 @@ python train.py \
 --lora_alpha 16 \
 --lora_dropout 0.1 \
 --dataloader_drop_last True
+
+
+clipsai train --data_train /clips-ai-train/datasets/ultrachat/train.jsonl --data_valid /clips-ai-train/datasets/ultrachat/test.jsonl
