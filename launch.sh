@@ -30,4 +30,4 @@ python train.py \
 --dataloader_drop_last True
 
 
-clipsai train --data_train /clips-ai-train/datasets/ultrachat/train.jsonl --data_valid /clips-ai-train/datasets/ultrachat/test.jsonl
+clipsai train --data_train /clips-ai-train/datasets/ultrachat/train.jsonl --data_valid /clips-ai-train/datasets/ultrachat/validation.jsonl
