@@ -113,7 +113,8 @@ class DataTrainingArguments:
 def get_datasets(data_args):
     data_files = {"train": data_args.train_filename}
     if data_args.valid_filename is not None:
-        data_files["validation"] = data_Args.valid_filename
+        if data_args.valid_filename != "-1":
+            data_files["validation"] = data_args.valid_filename
     raw_dataset = load_dataset("json", data_files=data_files)
     return raw_dataset["train"], raw_dataset.get("validation", None)
 
@@ -151,7 +152,7 @@ def create_and_prepare_model(args, data_args, training_args):
         quantization_config=bnb_config,
         trust_remote_code=True,
         attn_implementation="flash_attention_2" if args.use_flash_attn else "eager",
-        torch_dtype=None if args.use_flash_attn else torch_dtype,
+        torch_dtype=torch.bfloat16#None if args.use_flash_attn else torch_dtype,
     )
 
     peft_config = LoraConfig(

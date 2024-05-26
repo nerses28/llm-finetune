@@ -3,14 +3,6 @@ import subprocess
 import importlib.resources
 
 
-def get_argparse_defaults(parser):
-    defaults = {}
-    for action in parser._actions:
-        if not action.required and action.dest != "help":
-            defaults[action.dest] = action.default
-    return defaults
-
-
 @click.group()
 def main():
     pass
@@ -32,11 +24,16 @@ def train(data_train, data_valid, max_seq_len, lora_r, lora_alpha, lora_dropout,
     accelerate_config_filename = importlib.resources.files("cli.data") / "fsdp_config_qlora.yaml"
     accelerate_train_filename = importlib.resources.files("cli.scripts") / "train.py"
     accelerate_bash_filename = importlib.resources.files("cli.data") / "launch.sh"
-    proc = subprocess.Popen(['bash', accelerate_bash_filename], env={
-        'FSDP_CONFIG': accelerate_config_filename,
-        'TRAIN_SCRIPT': accelerate_train_filename,
-        'TRAIN_FILENAME': '/clips-ai-train/datasets/system_prompt/train.jsonl',
-        'HF_TOKEN': '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'
+    proc = subprocess.Popen(["bash", accelerate_bash_filename], env={
+        "FSDP_CONFIG": accelerate_config_filename,
+        "TRAIN_SCRIPT": accelerate_train_filename,
+        "TRAIN_FILENAME": data_train,
+        "VALID_FILENAME": "-1" if data_valid is None else data_valid,
+        "HF_TOKEN": "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",
+        "MAX_SEQ_LEN": str(max_seq_len),
+        "N_EPOCH": str(n_epoch),
+        "LEARNING_RATE": str(learning_rate),
+        "BATCH_SIZE": str(batch_size)
     })
     proc.wait()
 
