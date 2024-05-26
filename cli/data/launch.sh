@@ -16,7 +16,7 @@ accelerate launch --config_file $FSDP_CONFIG $TRAIN_SCRIPT --seed 100 \
 --learning_rate $LEARNING_RATE \
 --lr_scheduler_type "cosine" \
 --weight_decay 1e-4 \
---warmup_ratio 0.0 \
+--warmup_ratio 0.1 \
 --max_grad_norm 1.0 \
 --output_dir "llama-sft-qlora-fsdp" \
 --per_device_train_batch_size $BATCH_SIZE \
