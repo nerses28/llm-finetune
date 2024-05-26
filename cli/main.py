@@ -35,7 +35,7 @@ def train(data_train, data_valid, max_seq_len, lora_r, lora_alpha, lora_dropout,
     proc = subprocess.Popen(['bash', accelerate_bash_filename], env={
         'FSDP_CONFIG': accelerate_config_filename,
         'TRAIN_SCRIPT': accelerate_train_filename,
-        'TRAIN_FILENAME': '/root/datasets/system_prompt/train.jsonl',
+        'TRAIN_FILENAME': '/clips-ai-train/datasets/system_prompt/train.jsonl',
         'HF_TOKEN': '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'
     })
     proc.wait()
