@@ -33,13 +33,12 @@ def train(data_train, data_valid, max_seq_len, lora_r, lora_alpha, lora_dropout,
         "MAX_SEQ_LEN": str(max_seq_len),
         "N_EPOCH": str(n_epoch),
         "LEARNING_RATE": str(learning_rate),
-        "BATCH_SIZE": str(batch_size)
+        "BATCH_SIZE": str(batch_size),
+        "LORA_R": str(lora_r),
+        "LORA_ALPHA": str(lora_alpha),
+        "LORA_DROPOUT": str(lora_dropout)
     })
     proc.wait()
-
-    #accelerate_args, *_ = _validate_launch_command(accelerate_args)
-    #multi_gpu_launcher(accelerate_args)
-    # Initiate a training argument manually and pass it to the fine-tuning function;
     click.echo('Start training')
 
 

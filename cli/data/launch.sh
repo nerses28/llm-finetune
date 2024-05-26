@@ -26,9 +26,9 @@ accelerate launch --config_file $FSDP_CONFIG $TRAIN_SCRIPT --seed 100 \
 --use_reentrant True \
 --use_flash_attn True \
 --use_peft_lora True \
---lora_r 8 \
---lora_alpha 16 \
---lora_dropout 0.1 \
+--lora_r $LORA_R \
+--lora_alpha $LORA_ALPHA \
+--lora_dropout $LORA_DROPOUT \
 --lora_target_modules "all-linear" \
 --use_4bit_quantization True \
 --use_nested_quant True \
