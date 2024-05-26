@@ -5,6 +5,18 @@ import sys
 import json
 from dataclasses import dataclass, field
 from typing import Optional
+import torch
+
+from transformers import HfArgumentParser, TrainingArguments, set_seed
+from trl import SFTTrainer
+from utils import create_and_prepare_model, create_datasets
+from datasets import load_dataset
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+)
+from peft import LoraConfig
 
 
 # Define and parse arguments.
@@ -28,59 +40,47 @@ class DataTrainingArguments:
     max_seq_length: Optional[int] = field(default=512)
 
 
-def main(model_args, data_args, training_args):
-    import torch
+def get_datasets(data_args):
+    data_files = {"train": data_args.train_filename}
+    if data_args.valid_filename is not None:
+        data_files["validation"] = data_args.valid_filename
+    raw_dataset = load_dataset("json", data_files=data_files)
+    return raw_dataset["train"], raw_dataset.get("validation", None)
 
-    from transformers import HfArgumentParser, TrainingArguments, set_seed
-    from trl import SFTTrainer
-    from datasets import load_dataset
-    from transformers import (
-        AutoModelForCausalLM,
-        AutoTokenizer,
-        BitsAndBytesConfig,
+
+def get_model(args, data_args, training_args):
+    # Quantization params
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_storage=torch.uint8,
     )
-    from peft import LoraConfig
+
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model_name_or_path,
+        quantization_config=bnb_config,
+        attn_implementation="sdpa",
+        low_cpu_mem_usage=True
+    )
+
+    peft_config = LoraConfig(
+        base_model_name_or_path=args.model_name_or_path,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
+        r=args.lora_r,
+        bias="none",
+        task_type="CAUSAL_LM",
+        target_modules="all-linear"
+    )
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
+    tokenizer.pad_token = tokenizer.eos_token
+    return model, peft_config, tokenizer
 
 
-    def get_datasets(data_args):
-        data_files = {"train": data_args.train_filename}
-        if data_args.valid_filename is not None:
-            data_files["validation"] = data_args.valid_filename
-        raw_dataset = load_dataset("json", data_files=data_files)
-        return raw_dataset["train"], raw_dataset.get("validation", None)
-
-
-    def get_model(args, data_args, training_args):
-        # Quantization params
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_storage=torch.uint8,
-        )
-
-        model = AutoModelForCausalLM.from_pretrained(
-            args.model_name_or_path,
-            quantization_config=bnb_config,
-            attn_implementation="sdpa",
-            low_cpu_mem_usage=True
-        )
-
-        peft_config = LoraConfig(
-            base_model_name_or_path=args.model_name_or_path,
-            lora_alpha=args.lora_alpha,
-            lora_dropout=args.lora_dropout,
-            r=args.lora_r,
-            bias="none",
-            task_type="CAUSAL_LM",
-            target_modules="all-linear"
-        )
-
-        tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
-        tokenizer.pad_token = tokenizer.eos_token
-        return model, peft_config, tokenizer
-
+def main(model_args, data_args, training_args):
     # Set seed for reproducibility
     set_seed(training_args.seed)
 
