@@ -3,36 +3,16 @@ import json
 from datasets import load_dataset
 
 
-dataset = load_dataset("smangrul/ultrachat-10k-chatml")
+dataset = load_dataset("BramVanroy/ultra_feedback_dutch_cleaned", "sft_gpt4_hq")
 
 
-with open("datasets/no_system_prompt/train.jsonl", "w+") as f:
-    for i, example in enumerate(dataset["train"]):
+with open("datasets/ultrachat/train.jsonl", "w+") as f:
+    for i, example in enumerate(dataset["train_sft"]):
         messages = example["messages"]
         f.write(json.dumps({"messages": messages}, ensure_ascii=False) + "\n")
-        if i > 1000:
-            break
 
 
-with open("datasets/no_system_prompt/validation.jsonl", "w+") as f:
-    for i, example in enumerate(dataset["test"]):
+with open("datasets/ultrachat/test.jsonl", "w+") as f:
+    for i, example in enumerate(dataset["test_sft"]):
         messages = example["messages"]
         f.write(json.dumps({"messages": messages}, ensure_ascii=False) + "\n")
-        if i > 1000:
-            break
-
-
-with open("datasets/system_prompt/train.jsonl", "w+") as f:
-    for i, example in enumerate(dataset["train"]):
-        messages = [{"role": "system", "content": "You are a helpful AI assistant."}] + example["messages"]
-        f.write(json.dumps({"messages": messages}, ensure_ascii=False) + "\n")
-        if i > 1000:
-            break
-
-
-with open("datasets/system_prompt/validation.jsonl", "w+") as f:
-    for i, example in enumerate(dataset["test"]):
-        messages = [{"role": "system", "content": "You are a helpful AI assistant."}] + example["messages"]
-        f.write(json.dumps({"messages": messages}, ensure_ascii=False) + "\n")
-        if i > 1000:
-            break
