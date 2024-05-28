@@ -1,6 +1,12 @@
 import click
+import signal
 import subprocess
 import importlib.resources
+
+from argparse import Namespace
+from accelerate.commands.launch import launch_command
+from cli.utils import accelerate_args, training_args
+
 
 
 @click.group()
@@ -21,26 +27,27 @@ def main():
 @click.option("--n_epoch", default=1, show_default=True, type=click.FloatRange(min=0.001, max=10**9))
 @click.option("--model_suffix", type=str, help="Suffix applied to the adapter name")
 def train(data_train, data_valid, max_seq_len, lora_r, lora_alpha, lora_dropout, batch_size, learning_rate, n_epoch, model_suffix):
-    accelerate_config_filename = importlib.resources.files("cli.data") / "fsdp_config_qlora.yaml"
     accelerate_train_filename = importlib.resources.files("cli.scripts") / "train.py"
-    accelerate_bash_filename = importlib.resources.files("cli.data") / "launch.sh"
-    proc = subprocess.Popen(["bash", accelerate_bash_filename], env={
-        "FSDP_CONFIG": accelerate_config_filename,
-        "TRAIN_SCRIPT": accelerate_train_filename,
-        "TRAIN_FILENAME": data_train,
-        "VALID_FILENAME": "-1" if data_valid is None else data_valid,
-        "HF_TOKEN": "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",
-        "MAX_SEQ_LEN": str(max_seq_len),
-        "N_EPOCH": str(n_epoch),
-        "LEARNING_RATE": str(learning_rate),
-        "BATCH_SIZE": str(batch_size),
-        "LORA_R": str(lora_r),
-        "LORA_ALPHA": str(lora_alpha),
-        "LORA_DROPOUT": str(lora_dropout)
-    })
-    proc.wait()
-    click.echo('Start training')
-
+    accelerate_config_filename = importlib.resources.files("cli.data") / "fsdp_config_qlora.yaml"
+    training_script_args = {
+        "train_filename": str(data_train),
+        "valid_filename": str(data_valid),
+        "max_seq_len": str(max_seq_len),
+        "num_train_epoch": str(n_epoch),
+        "learning_rate": str(learning_rate),
+        "per_device_train_batch_size": str(batch_size),
+        "per_device_eval_batch_size": str(batch_size),
+        "lora_r": str(lora_r),
+        "lora_alpha": str(lora_alpha),
+        "lora_dropout": str(lora_dropout),
+        **training_args
+    }
+    training_script_args = " ".join([f"--{k} {v}" for k, v in training_script_args.items() if v is not None])
+    training_script_args = training_script_args.split()
+    accelerate_args.config_file = str(accelerate_config_filename)
+    accelerate_args.training_script = str(accelerate_train_filename)
+    accelerate_args.training_script_args = training_script_args
+    launch_command(accelerate_args)
 
 @main.command()
 def generate():
