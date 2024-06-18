@@ -93,8 +93,6 @@ accelerate_args = Namespace(
 
 training_args = dict(
     model_name_or_path="meta-llama/Meta-Llama-3-8B-Instruct",
-    add_special_tokens="False",
-    append_concat_token="True",
     logging_steps=5,
     log_level="info",
     logging_strategy="steps",
@@ -116,5 +114,7 @@ training_args = dict(
     use_4bit_quantization="True",
     use_nested_quant="True",
     bnb_4bit_compute_dtype="bfloat16",
-    bnb_4bit_quant_storage_dtype="bfloat16"
+    bnb_4bit_quant_storage_dtype="bfloat16",
+    max_seq_length="1024",
+    dataset_text_field="text"
 )

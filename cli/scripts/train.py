@@ -4,9 +4,11 @@ import os
 import sys
 from typing import Optional
 from dataclasses import dataclass, field
+from accelerate import Accelerator
 
 from transformers import HfArgumentParser, TrainingArguments, set_seed
-from trl import SFTTrainer
+from trl import SFTTrainer, SFTConfig
+from trl.trainer import ConstantLengthDataset
 from utils import create_and_prepare_model, create_datasets
 from enum import Enum
 
@@ -91,23 +93,23 @@ class ModelArguments:
 class DataTrainingArguments:
     train_filename: str = field(metadata={"help": "Path to the training data."})
     valid_filename: Optional[str] = field(default=None, metadata={"help": "Path to the validation data."})
-    packing: Optional[bool] = field(
-        default=False,
-        metadata={"help": "Use packing dataset creating."},
-    )
-    max_seq_length: Optional[int] = field(default=512)
-    append_concat_token: Optional[bool] = field(
-        default=False,
-        metadata={"help": "If True, appends `eos_token_id` at the end of each sample being packed."},
-    )
-    add_special_tokens: Optional[bool] = field(
-        default=False,
-        metadata={"help": "If True, tokenizers adds special tokens to each sample being packed."},
-    )
-    splits: Optional[str] = field(
-        default="train,test",
-        metadata={"help": "Comma separate list of the splits to use from the dataset."},
-    )
+    # packing: Optional[bool] = field(
+    #     default=False,
+    #     metadata={"help": "Use packing dataset creating."},
+    # )
+    # max_seq_length: Optional[int] = field(default=512)
+    # append_concat_token: Optional[bool] = field(
+    #     default=False,
+    #     metadata={"help": "If True, appends `eos_token_id` at the end of each sample being packed."},
+    # )
+    # add_special_tokens: Optional[bool] = field(
+    #     default=False,
+    #     metadata={"help": "If True, tokenizers adds special tokens to each sample being packed."},
+    # )
+    # splits: Optional[str] = field(
+    #     default="train,test",
+    #     metadata={"help": "Comma separate list of the splits to use from the dataset."},
+    # )
 
 
 def get_datasets(data_args):
@@ -117,6 +119,14 @@ def get_datasets(data_args):
             data_files["validation"] = data_args.valid_filename
     raw_dataset = load_dataset("json", data_files=data_files)
     return raw_dataset["train"], raw_dataset.get("validation", None)
+
+
+def apply_chat_template(dataset, tokenizer):
+    if dataset is None:
+        return None
+    def preprocess(example):
+        return {"text": tokenizer.apply_chat_template(example["messages"], tokenize=False)}
+    return dataset.map(preprocess)
 
 
 def create_and_prepare_model(args, data_args, training_args):
@@ -187,8 +197,13 @@ def main(model_args, data_args, training_args):
         training_args.gradient_checkpointing_kwargs = {"use_reentrant": model_args.use_reentrant}
 
     # datasets
-    train_dataset, eval_dataset = get_datasets(data_args)
-
+    accelerator = Accelerator()
+    with accelerator.main_process_first():
+        train_dataset, eval_dataset = get_datasets(data_args)
+        train_dataset = apply_chat_template(train_dataset, tokenizer)
+        eval_dataset = apply_chat_template(eval_dataset, tokenizer)
+        print(train_dataset)
+        print(train_dataset[0])
     # trainer
     trainer = SFTTrainer(
         model=model,
@@ -197,12 +212,6 @@ def main(model_args, data_args, training_args):
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         peft_config=peft_config,
-        packing=data_args.packing,
-        dataset_kwargs={
-            "append_concat_token": data_args.append_concat_token,
-            "add_special_tokens": data_args.add_special_tokens,
-        },
-        max_seq_length=data_args.max_seq_length,
     )
     trainer.accelerator.print(f"{trainer.model}")
     trainer.model.print_trainable_parameters()
@@ -220,7 +229,7 @@ def main(model_args, data_args, training_args):
 
 
 if __name__ == "__main__":
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, SFTConfig))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
