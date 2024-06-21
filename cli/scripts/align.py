@@ -6,14 +6,11 @@ from typing import Optional
 from dataclasses import dataclass, field
 from accelerate import Accelerator
 
-from transformers import HfArgumentParser, TrainingArguments, set_seed
+from transformers import HfArgumentParser, set_seed
 from trl import DPOTrainer, DPOConfig
-from trl.trainer import ConstantLengthDataset
-from utils import create_and_prepare_model, create_datasets
-from enum import Enum
 
 import torch
-from datasets import DatasetDict, load_dataset, load_from_disk
+from datasets import load_dataset
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -23,18 +20,22 @@ from transformers import (
 from peft import PeftModel
 
 
-
 # Define and parse arguments.
 @dataclass
 class ModelArguments:
     """
     Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
     """
+
     peft_path: str = field(
-        metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
+        metadata={
+            "help": "Path to pretrained model or model identifier from huggingface.co/models"
+        }
     )
     model_name_or_path: str = field(
-        metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
+        metadata={
+            "help": "Path to pretrained model or model identifier from huggingface.co/models"
+        }
     )
     chat_template_format: Optional[str] = field(
         default="none",
@@ -47,7 +48,9 @@ class ModelArguments:
     lora_r: Optional[int] = field(default=64)
     lora_target_modules: Optional[str] = field(
         default="q_proj,k_proj,v_proj,o_proj,down_proj,up_proj,gate_proj",
-        metadata={"help": "comma separated list of target modules to apply LoRA layers to"},
+        metadata={
+            "help": "comma separated list of target modules to apply LoRA layers to"
+        },
     )
     use_nested_quant: Optional[bool] = field(
         default=False,
@@ -94,7 +97,9 @@ class ModelArguments:
 @dataclass
 class DataTrainingArguments:
     train_filename: str = field(metadata={"help": "Path to the training data."})
-    valid_filename: Optional[str] = field(default=None, metadata={"help": "Path to the validation data."})
+    valid_filename: Optional[str] = field(
+        default=None, metadata={"help": "Path to the validation data."}
+    )
     # packing: Optional[bool] = field(
     #     default=False,
     #     metadata={"help": "Use packing dataset creating."},
@@ -126,12 +131,16 @@ def get_datasets(data_args):
 def apply_chat_template(dataset, tokenizer):
     if dataset is None:
         return None
+
     def preprocess(example):
         return {
             "prompt": tokenizer.apply_chat_template(example["prompt"], tokenize=False),
             "chosen": tokenizer.apply_chat_template(example["chosen"], tokenize=False),
-            "rejected": tokenizer.apply_chat_template(example["rejected"], tokenize=False)
+            "rejected": tokenizer.apply_chat_template(
+                example["rejected"], tokenize=False
+            ),
         }
+
     return dataset.map(preprocess)
 
 
@@ -155,23 +164,24 @@ def create_and_prepare_model(args, data_args, training_args):
             major, _ = torch.cuda.get_device_capability()
             if major >= 8:
                 print("=" * 80)
-                print("Your GPU supports bfloat16, you can accelerate training with the argument --bf16")
+                print(
+                    "Your GPU supports bfloat16, you can accelerate training with the argument --bf16"
+                )
                 print("=" * 80)
         elif args.use_8bit_quantization:
             bnb_config = BitsAndBytesConfig(load_in_8bit=args.use_8bit_quantization)
 
-    torch_dtype = (
-        quant_storage_dtype if quant_storage_dtype and quant_storage_dtype.is_floating_point else torch.float32
-    )
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name_or_path,
         quantization_config=bnb_config,
         trust_remote_code=True,
         attn_implementation="flash_attention_2" if args.use_flash_attn else "eager",
-        torch_dtype=torch.bfloat16#None if args.use_flash_attn else torch_dtype,
+        torch_dtype=torch.bfloat16,
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.model_name_or_path, trust_remote_code=True
+    )
     tokenizer.pad_token = tokenizer.eos_token
 
     return model, tokenizer
@@ -186,18 +196,18 @@ def main(model_args, data_args, training_args):
 
     # gradient ckpt
     model.config.use_cache = not training_args.gradient_checkpointing
-    training_args.gradient_checkpointing = training_args.gradient_checkpointing and not model_args.use_unsloth
+    training_args.gradient_checkpointing = (
+        training_args.gradient_checkpointing and not model_args.use_unsloth
+    )
     if training_args.gradient_checkpointing:
-        training_args.gradient_checkpointing_kwargs = {"use_reentrant": model_args.use_reentrant}
-
+        training_args.gradient_checkpointing_kwargs = {
+            "use_reentrant": model_args.use_reentrant
+        }
 
     model = PeftModel.from_pretrained(
-        model,
-        model_args.peft_path,
-        is_trainable=True,
-        adapter_name="aligned"
+        model, model_args.peft_path, is_trainable=True, adapter_name="aligned"
     )
-    
+
     model.load_adapter(model_args.peft_path, adapter_name="reference")
 
     # datasets
@@ -214,7 +224,7 @@ def main(model_args, data_args, training_args):
         tokenizer=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=eval_dataset.select(range(100))
+        eval_dataset=eval_dataset.select(range(100)),
     )
     trainer.accelerator.print(f"{trainer.model}")
     trainer.model.print_trainable_parameters()
@@ -236,7 +246,9 @@ if __name__ == "__main__":
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args = parser.parse_json_file(
+            json_file=os.path.abspath(sys.argv[1])
+        )
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     main(model_args, data_args, training_args)
