@@ -99,7 +99,6 @@ training_args = dict(
     eval_strategy="epoch",
     save_strategy="no",
     bf16="True",
-    packing="True",
     lr_scheduler_type="cosine",
     weight_decay="1e-4",
     warmup_ratio="0.1",
@@ -115,6 +114,4 @@ training_args = dict(
     use_nested_quant="True",
     bnb_4bit_compute_dtype="bfloat16",
     bnb_4bit_quant_storage_dtype="bfloat16",
-    max_seq_length="1024",
-    dataset_text_field="text"
 )

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from accelerate import Accelerator
 
 from transformers import HfArgumentParser, TrainingArguments, set_seed
-from trl import SFTTrainer, SFTConfig
+from trl import DPOTrainer, DPOConfig
 from trl.trainer import ConstantLengthDataset
 from utils import create_and_prepare_model, create_datasets
 from enum import Enum
@@ -20,7 +20,7 @@ from transformers import (
     BitsAndBytesConfig,
 )
 
-from peft import LoraConfig
+from peft import PeftModel
 
 
 
@@ -30,7 +30,9 @@ class ModelArguments:
     """
     Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
     """
-
+    peft_path: str = field(
+        metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
+    )
     model_name_or_path: str = field(
         metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
     )
@@ -125,7 +127,11 @@ def apply_chat_template(dataset, tokenizer):
     if dataset is None:
         return None
     def preprocess(example):
-        return {"text": tokenizer.apply_chat_template(example["messages"], tokenize=False)}
+        return {
+            "prompt": tokenizer.apply_chat_template(example["prompt"], tokenize=False),
+            "chosen": tokenizer.apply_chat_template(example["chosen"], tokenize=False),
+            "rejected": tokenizer.apply_chat_template(example["rejected"], tokenize=False)
+        }
     return dataset.map(preprocess)
 
 
@@ -165,22 +171,10 @@ def create_and_prepare_model(args, data_args, training_args):
         torch_dtype=torch.bfloat16#None if args.use_flash_attn else torch_dtype,
     )
 
-    peft_config = LoraConfig(
-        base_model_name_or_path=args.model_name_or_path,
-        lora_alpha=args.lora_alpha,
-        lora_dropout=args.lora_dropout,
-        r=args.lora_r,
-        bias="none",
-        task_type="CAUSAL_LM",
-        target_modules=args.lora_target_modules.split(",")
-        if args.lora_target_modules != "all-linear"
-        else args.lora_target_modules,
-    )
-
     tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, trust_remote_code=True)
     tokenizer.pad_token = tokenizer.eos_token
 
-    return model, peft_config, tokenizer
+    return model, tokenizer
 
 
 def main(model_args, data_args, training_args):
@@ -188,13 +182,23 @@ def main(model_args, data_args, training_args):
     set_seed(training_args.seed)
 
     # model
-    model, peft_config, tokenizer = create_and_prepare_model(model_args, data_args, training_args)
+    model, tokenizer = create_and_prepare_model(model_args, data_args, training_args)
 
     # gradient ckpt
     model.config.use_cache = not training_args.gradient_checkpointing
     training_args.gradient_checkpointing = training_args.gradient_checkpointing and not model_args.use_unsloth
     if training_args.gradient_checkpointing:
         training_args.gradient_checkpointing_kwargs = {"use_reentrant": model_args.use_reentrant}
+
+
+    model = PeftModel.from_pretrained(
+        model,
+        model_args.peft_path,
+        is_trainable=True,
+        adapter_name="aligned"
+    )
+    
+    model.load_adapter(model_args.peft_path, adapter_name="reference")
 
     # datasets
     accelerator = Accelerator()
@@ -205,13 +209,12 @@ def main(model_args, data_args, training_args):
         print(train_dataset)
         print(train_dataset[0])
     # trainer
-    trainer = SFTTrainer(
+    trainer = DPOTrainer(
         model=model,
         tokenizer=tokenizer,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=eval_dataset.select(range(100)),
-        peft_config=peft_config,
+        eval_dataset=eval_dataset.select(range(100))
     )
     trainer.accelerator.print(f"{trainer.model}")
     trainer.model.print_trainable_parameters()
@@ -229,7 +232,7 @@ def main(model_args, data_args, training_args):
 
 
 if __name__ == "__main__":
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, SFTConfig))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, DPOConfig))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
