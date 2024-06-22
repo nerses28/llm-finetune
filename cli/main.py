@@ -1,9 +1,20 @@
-import os
+import uuid
 import click
+import getpass
 import importlib.resources
 
 from accelerate.commands.launch import launch_command
 from cli.utils import accelerate_args, training_args
+
+
+DEFAULT_SAVING_DIR = "output"
+
+
+def get_prefix(prefix=""):
+    user = getpass.getuser()
+    if prefix.strip() != "":
+        return f"{user}_{prefix}"
+    return user
 
 
 @click.group()
@@ -70,7 +81,7 @@ def main():
     "--wandb/--no-wandb",
     default=False
 )
-@click.option("--model_suffix", type=str, help="Suffix applied to the adapter name")
+@click.option("--model_suffix", type=str, default="", help="Suffix applied to the adapter name")
 def train(
     data_train,
     data_valid,
@@ -88,6 +99,8 @@ def train(
     accelerate_config_filename = (
         importlib.resources.files("cli.data") / "fsdp_config_qlora.yaml"
     )
+    output_dir = DEFAULT_SAVING_DIR + "/" + get_prefix(prefix="train") + "_" + str(uuid.uuid4())[:6] + "_" + model_suffix
+    print(output_dir)
     training_script_args = {
         "train_filename": str(data_train),
         "valid_filename": str(data_valid),
@@ -102,6 +115,8 @@ def train(
         "packing": "True",
         "dataset_text_field": "text",
         "report_to": "wandb" if wandb else "none",
+        "output_dir": output_dir,
+        "lora_target_modules": "all-linear",
         **training_args,
     }
     training_script_args = " ".join(
@@ -164,6 +179,7 @@ def align(
     accelerate_config_filename = (
         importlib.resources.files("cli.data") / "fsdp_config_qlora.yaml"
     )
+    output_dir = DEFAULT_SAVING_DIR + "/" + get_prefix(prefix="align") + "_" + str(uuid.uuid4())[:6] + "_" + model_suffix
     training_script_args = {
         "train_filename": str(data_train),
         "valid_filename": str(data_valid),
@@ -177,6 +193,7 @@ def align(
         "max_length": max_seq_len,
         "max_prompt_length": max_seq_len,
         "remove_unused_columns": "False",
+        "output_dir": output_dir,
         **training_args,
     }
     training_script_args = " ".join(

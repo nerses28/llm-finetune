@@ -107,11 +107,7 @@ training_args = dict(
     gradient_accumulation_steps="1",
     gradient_checkpointing="True",
     use_reentrant="True",
-    use_flash_attn="True",
+    use_flash_attn="False",
     use_peft_lora="True",
     lora_target_modules="all-linear",
-    use_4bit_quantization="True",
-    use_nested_quant="True",
-    bnb_4bit_compute_dtype="bfloat16",
-    bnb_4bit_quant_storage_dtype="bfloat16",
 )
