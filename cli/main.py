@@ -128,7 +128,101 @@ def train(
     accelerate_args.training_script_args = training_script_args
     launch_command(accelerate_args)
 
+@main.command()
+@click.option(
+    "--data_test",
+    required=True,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True),
+    help="Path to the test data for prediction.",
+)
+@click.option(
+    "--peft_path",
+    required=True,
+    type=click.Path(exists=True, file_okay=True, dir_okay=True, readable=True),
+    help="Path to the trained LoRA adapter.",
+)
+@click.option(
+    "--output_filename",
+    default="predictions.jsonl",
+    show_default=True,
+    type=click.Path(file_okay=True, dir_okay=False, writable=True),
+    help="File where predictions will be saved (JSONL format).",
+)
+@click.option(
+    "--output_path",
+    default="predict_results/",
+    show_default=True,
+    type=click.Path(file_okay=False, dir_okay=True, writable=True),
+    help="Path where predictions will be saved.",
+)
+@click.option(
+    "--max_new_tokens",
+    default=128,
+    show_default=True,
+    type=click.IntRange(min=1, max=1024),
+    help="Maximum number of tokens to generate.",
+)
+@click.option(
+    "--temperature",
+    default=0.7,
+    show_default=True,
+    type=click.FloatRange(min=0.0, max=2.0),
+    help="Sampling temperature for generation.",
+)
+@click.option(
+    "--top_p",
+    default=0.9,
+    show_default=True,
+    type=click.FloatRange(min=0.0, max=1.0),
+    help="Nucleus sampling probability for generation.",
+)
+@click.option(
+    "--num_return_sequences",
+    default=1,
+    show_default=True,
+    type=click.IntRange(min=1, max=10),
+    help="Number of sequences to return for each input.",
+)
+@click.option(
+    "--batch_size", default=1, show_default=True, type=click.IntRange(min=1, max=512)
+)
+def predict(
+    data_test,
+    peft_path,
+    output_filename,
+    output_path,
+    max_new_tokens,
+    temperature,
+    top_p,
+    num_return_sequences,
+    batch_size,
+):
+    accelerate_predict_filename = importlib.resources.files("cli.scripts") / "predict.py"
+    accelerate_config_filename = (
+        importlib.resources.files("cli.data") / "fsdp_config_qlora.yaml"
+    )
 
+    prediction_script_args = {
+        "input_filename": str(data_test),
+        "peft_path": str(peft_path),
+        "output_filename": str(output_filename),
+        "output_path": str(output_path),
+        "max_new_tokens": str(max_new_tokens),
+        "temperature": str(temperature),
+        "top_p": str(top_p),
+        "num_return_sequences": str(num_return_sequences),
+        "batch_size": str(batch_size),
+    }
+    prediction_script_args = " ".join(
+        [f"--{k} {v}" for k, v in prediction_script_args.items() if v is not None]
+    )
+    prediction_script_args = prediction_script_args.split()
+    accelerate_args.config_file = str(accelerate_config_filename)
+    accelerate_args.training_script = str(accelerate_predict_filename)
+    accelerate_args.training_script_args = prediction_script_args
+    launch_command(accelerate_args)
+
+    
 @main.command()
 @click.option(
     "--data_train",

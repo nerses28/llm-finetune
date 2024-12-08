@@ -11,6 +11,7 @@ from transformers import HfArgumentParser, set_seed
 from trl import SFTTrainer, SFTConfig
 
 import torch
+
 from datasets import load_dataset
 from transformers import (
     AutoModelForCausalLM,
@@ -48,6 +49,11 @@ class ModelArguments:
             "help": "Path to pretrained model or model identifier from huggingface.co/models"
         }
     )
+    use_reentrant: bool = field(default=True)
+    use_flash_attn: bool = field(default=False)
+    use_peft_lora: bool = field(default=True)
+    use_unsloth: bool = field(default=False, metadata={"help": "Enable or disable the unsloth feature."})
+
     lora_alpha: Optional[int] = field(default=16)
     lora_dropout: Optional[float] = field(default=0.1)
     lora_r: Optional[int] = field(default=64)
@@ -126,6 +132,8 @@ def create_and_prepare_model(args, data_args, training_args):
 
 
 def main(model_args, data_args, training_args):
+
+    
     # Set seed for reproducibility
     set_seed(training_args.seed)
 
@@ -150,7 +158,7 @@ def main(model_args, data_args, training_args):
         train_dataset, eval_dataset = get_datasets(data_args)
         train_dataset = apply_chat_template(train_dataset, tokenizer)
         eval_dataset = apply_chat_template(eval_dataset, tokenizer)
-
+      
     # trainer
     trainer = SFTTrainer(
         model=model,
@@ -160,10 +168,9 @@ def main(model_args, data_args, training_args):
         eval_dataset=eval_dataset.select(range(100)),
         peft_config=peft_config,
     )
-
+    
     # train
     trainer.train()
-
     # saving final model
     if trainer.is_fsdp_enabled:
         trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")

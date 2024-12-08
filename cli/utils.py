@@ -9,7 +9,7 @@ accelerate_args = Namespace(
     tpu=False,
     ipex=False,
     mixed_precision="no",
-    num_processes=2,
+    num_processes=1,
     num_machines=1,
     num_cpu_threads_per_process=1,
     enable_cpu_affinity=False,
@@ -92,7 +92,8 @@ accelerate_args = Namespace(
 
 
 training_args = dict(
-    model_name_or_path="meta-llama/Meta-Llama-3-8B-Instruct",
+    model_name_or_path="meta-llama/Meta-Llama-3.1-8B-Instruct",
+    #model_name_or_path="BramVanroy/fietje-2",
     logging_steps=5,
     log_level="info",
     logging_strategy="steps",
