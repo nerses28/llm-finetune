@@ -59,7 +59,7 @@ The server-side implementation consists of the following files:
 To launch the API server, use the following command:
 
 ```bash
-python server_api.py /path/to/your/config.json
+python3 server_api.py /path/to/your/config.json
 ```
 - The server requires a JSON configuration file to specify model paths and optional parameters.  
   Example of a configuration file (`server_api.json`):
@@ -73,6 +73,12 @@ python server_api.py /path/to/your/config.json
   - `peft_path`: Path to the trained PEFT adapter. Required if specified.
   - `base_model_path`: Path to the base (vanila) model. This is required only if `peft_path` is not provided (If you want to deploy vanila model).
   - `port`: Optional. The port where the server will run (default is `8000`).
+
+An example of how to send a request to the API server can be found in the file server_request.py. To execute the example request, use the following command:
+```bash
+python3 server_request.py
+```
+Note: All server-related scripts (server_api.py, server_client_sdk.py, server_request.py) are currently designed for local usage only. If you plan to deploy the server for remote or production use, update sdk/server_api and ensure proper security measures, such as authentication, HTTPS, and firewall settings, are implemented.
 
 ## Project Structure (not complete; only some important parts)
 
